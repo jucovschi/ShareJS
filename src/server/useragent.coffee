@@ -24,6 +24,8 @@ module.exports = (model, options) ->
       # This is a map from docName -> listener function
       @listeners = {}
 
+      # 
+      
       # Should be manually set by the auth function.
       @name = null
 
@@ -89,6 +91,10 @@ module.exports = (model, options) ->
       @doAuth {docName, docType:type, meta}, 'create', callback, =>
         model.create docName, type, meta, callback
 
+    forwardRequest: (docName, connid, request) ->
+    	# broadcasting the forward message to all model listeners
+    	model.forward(docName, connid, request)
+        
     submitOp: (docName, opData, callback) ->
       opData.meta ||= {}
       opData.meta.source = @sessionId
@@ -120,6 +126,13 @@ module.exports = (model, options) ->
       else
         (c) -> c()
 
+      sess = @sessionId;
+      model.on 'forward', (docName, sessidRecv, request) ->
+      	      if sessidRecv == sess
+      	      	      listener({
+      	      	      	doc : docName,
+      	      	      	meta : request
+      	      	      });
       authOps =>
         @doAuth {docName, v:version if version?}, 'open', callback, =>
           return callback? 'Document is already open' if @listeners[docName]

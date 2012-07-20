@@ -1,3 +1,4 @@
+# :tabSize=4:indentSize=4:
 unless WEB?
   types = require '../types'
 
@@ -33,6 +34,8 @@ class Doc
     @snapshot = openData.snaphot
     @_setType openData.type if openData.type
 
+    @remoteCallback = []
+    
     @state = 'closed'
     @autoOpen = false
 
@@ -107,6 +110,7 @@ class Doc
 
   _onMessage: (msg) ->
     #console.warn 's->c', msg
+    console.log("_onMessage", msg);
     if msg.open == true
       # The document has been successfully opened.
       @state = 'open'
@@ -230,6 +234,14 @@ class Doc
       @_otApply docOp, true
 
     else if msg.meta
+    	if (msg.meta.forward)
+    		console.log("Forwarding ",msg.meta);
+    		eventid = msg.meta.eventid
+    		if @remoteCallback[eventid]?
+    			@remoteCallback[eventid](msg.meta)
+    		else
+    			@emit "forward", msg.meta
+    		return
       {path, value} = msg.meta
 
       switch path?[0]
@@ -241,7 +253,45 @@ class Doc
     else
       console?.warn 'Unhandled document message:', msg
 
+  makeid : () ->
+    text = "";
+    possible = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
 
+    for x in [1..10]
+        text += possible.charAt(Math.floor(Math.random() * possible.length));
+
+    return text;
+  	  
+  emitRemote : (connid, event, data, callback) ->
+  	  eventid = @makeid()
+  	  @remoteCallback[eventid] = callback if callback
+  	  @connection.send {
+  	  		doc: @name, 
+  	  		meta: {
+  	  			forward : true,
+  	  			connid : connid,
+  	  			event : event,
+  	  			eventid : eventid,
+  	  			param : data
+  	  		}
+  	  }
+  	  
+  respondRemote : (evt, event, data, callback) ->
+  	  newEvent = {
+  	  	connid : evt.from,
+  	  	event : event,
+  	  	eventid : evt.eventid,
+  	  	param : data,
+  	  	from : evt.connid,
+  	  	forward : true
+  	  };
+  	   
+  	  @remoteCallback[evt.eventid] = callback if callback
+  	  @connection.send {
+  	  		doc: @name, 
+  	  		meta: newEvent
+  	  }  	  
+  	  
   # Send ops to the server, if appropriate.
   #
   # Only one op can be in-flight at a time, so if an op is already on its way then
@@ -256,7 +306,11 @@ class Doc
     @pendingOp = null
     @pendingCallbacks = []
 
-    @connection.send {doc:@name, op:@inflightOp, v:@version}
+    if (@type.serializeOp)
+    	    toSend = @type.serializeOp(@inflightOp)
+    else
+    	    toSend = @inflightOp;
+    @connection.send {doc:@name, op:toSend, v:@version}
 
   # Submit an op to the server. The op maybe held for a little while before being sent, as only one
   # op can be inflight at any time.
