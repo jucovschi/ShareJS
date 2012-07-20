@@ -2,6 +2,7 @@
 # and managing the storage layer.
 #
 # Actual storage is handled by the database wrappers in db/*, wrapped by DocCache
+# :tabSize=4:indentSize=4:
 
 {EventEmitter} = require 'events'
 
@@ -500,8 +501,10 @@ module.exports = Model = (db, options) ->
   # TODO: store (some) metadata in DB
   # TODO: op and meta should be combineable in the op that gets sent
   @applyMetaOp = (docName, metaOpData, callback) ->
+  	if metaOpData.forward
+  		@forward docName, metaOpData.connid, metaOpData, callback
     {path, value} = metaOpData.meta
-   
+    
     return callback? "path should be an array" unless isArray path
 
     load docName, (error, doc) ->
@@ -517,6 +520,16 @@ module.exports = Model = (db, options) ->
         model.emit 'applyMetaOp', docName, path, value if applied
         callback? null, doc.v
 
+  # handles forward requests
+  @forward = (docName, connid, request, callback) ->
+    load docName, (error, doc) ->
+      if error?
+        callback? error
+      else
+      	model.emit 'forward', docName, connid, request
+
+      	callback? null, doc.v
+  
   # Listen to all ops from the specified version. If version is in the past, all
   # ops since that version are sent immediately to the listener.
   #

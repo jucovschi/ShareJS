@@ -55,7 +55,7 @@ module.exports = (createAgent, options) ->
 
     # We'll only handle one message from each client at a time.
     handleMessage = (query) ->
-      #console.log "Message from #{session.id}", query
+      # console.log "Message from #{session.id}", query
 
       error = null
       error = 'Invalid docName' unless query.doc is null or typeof query.doc is 'string' or (query.doc is undefined and lastReceivedDoc)
@@ -87,7 +87,6 @@ module.exports = (createAgent, options) ->
         # When the session is closed, we'll nuke docState. When that happens, no more messages
         # should be handled.
         return callback() unless docState
-
         # Close messages are {open:false}
         if query.open == false
           handleClose query, callback
@@ -104,6 +103,11 @@ module.exports = (createAgent, options) ->
         else if query.op? or query.meta?.path?
           handleOp query, callback
 
+        else if query.meta?.forward?
+          query.meta.from = agent.sessionId
+          console.log("starting forwarding...");
+          agent.forwardRequest(query.doc, query.meta.connid, query.meta);
+          callback()
         else
           console.warn "Invalid query #{JSON.stringify query} from #{agent.sessionId}"
           session.abort()
@@ -140,6 +144,7 @@ module.exports = (createAgent, options) ->
         throw new Error 'Consistency violation - doc listener invalid' unless docState[docName].listener == listener
 
         #p "listener doc:#{docName} opdata:#{i opData} v:#{version}"
+        #console.log "doc:#{docName} opdata:",opData, "v:#{version}";
 
         # Skip the op if this socket sent it.
         return if opData.meta.source is agent.sessionId
@@ -157,6 +162,7 @@ module.exports = (createAgent, options) ->
         delete docState[docName].listener if error
         callback error, v
 
+      agent.setSession(session);
     # Close the named document.
     # callback([error])
     close = (docName, callback) ->
