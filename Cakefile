@@ -19,6 +19,8 @@ client = [
 	'types/helpers'
 	'types/text'
 	'types/text-api'
+	'types/etherpad'
+	'types/etherpad-api'
 	'client/doc'
 	'client/connection'
 	'client/index'
@@ -83,6 +85,7 @@ buildtype = (name) ->
 task 'webclient', 'Build the web client into one file', ->
 	compile client, 'webclient/share'
 	buildtype 'json'
+	buildtype 'etherpad'
 	buildtype 'text-tp2'
 
 	# TODO: This should also be closure compiled.

@@ -1,14 +1,11 @@
 # Text document API for text
 # :tabSize=4:indentSize=4:
 
-if WEB? 
-	Changeset = window.ShareJS.Changeset
-	AttributePool = window.ShareJS.AttributePool
-else 
-	etherpad = require './etherpad'
-	AttributePool = require './AttributePool'  
-	Changeset = require './Changeset'
-	
+etherpad = require './etherpad' unless WEB?
+
+Changeset = etherpad.Changeset
+AttributePool = etherpad.AttributePool
+
 etherpad.api =
 	provides: {text:true}
 
